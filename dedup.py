@@ -134,21 +134,12 @@ class DedupFile:
                 if i <= j:
                     break
 
-                if self.is_not_none(value) and value[0] == other[0]:
+                if self.is_not_none(value):# and value[0] == other[0]:
 
                     scaling_factor = (len(value) + len(other))/20
 
-                    zlib_similarity = textdistance.zlib_ncd.normalized_similarity(
-                        value, other)
-                    ro_similarity = textdistance.ratcliff_obershelp.normalized_similarity(
-                        value, other)
-                    dl_similarity = textdistance.damerau_levenshtein.normalized_similarity(
-                        value, other)
+                    dl_similarity = textdistance.levenshtein.normalized_similarity(value, other)
 
-                    self.add_score(i, column_no, j,
-                                   (zlib_similarity - 0.5) * scaling_factor)
-                    self.add_score(i, column_no, j,
-                                   (ro_similarity - 0.5) * scaling_factor)
                     self.add_score(i, column_no, j,
                                    (dl_similarity - 0.5) * scaling_factor)
 
@@ -157,19 +148,7 @@ class DedupFile:
                             i, column_no, j, '{} same as {}'.format(column_name, other))
                         self.note_potential_dupe(
                             j, column_no, i, '{} same as {}'.format(column_name, value))
-                        self.add_score(i, column_no, j, 1.5)
-
-                    elif zlib_similarity >= 0.75:
-                        self.note_potential_dupe(
-                            i, column_no, j, '{} similar to {}'.format(column_name, other))
-                        self.note_potential_dupe(
-                            j, column_no, i, '{} similar to {}'.format(column_name, value))
-                    # stopped using ratcliff because it doesn't really help? But it does pick up quite a few hits that were otherwise missed.
-                    elif ro_similarity >= 0.80:
-                        self.note_potential_dupe(
-                            i, column_no, j, '{} similar to {}'.format(column_name, other))
-                        self.note_potential_dupe(
-                            j, column_no, i, '{} similar to {}'.format(column_name, value))
+                        self.add_score(i, column_no, j, scaling_factor)
                     elif dl_similarity >= 0.75:
                         # print('DL detects extra {} and {}'.format(value, other))
                         self.note_potential_dupe(
@@ -186,8 +165,8 @@ class DedupFile:
         for value in self.iter_row(column_no):
             # strip symbols and spaces
             stripped_value = re.sub('\W', '', value)
-            # strip leading country code
-            stripped_value = re.sub('^[a-zA-Z]{1,2}', '', stripped_value)
+            # strip all letter prefixes
+            stripped_value = re.sub('^[a-zA-Z]+', '', stripped_value)
             stripped_value = re.sub(
                 '^[09]+', '', stripped_value)  # strip leading 0s and 9s
             stripped_value = re.sub(
@@ -202,12 +181,12 @@ class DedupFile:
 
                 if self.is_not_none(value):
                     if len(stripped_value) > 0 and len(stripped_other) > 0:
-                        dl_striped_similarity = textdistance.damerau_levenshtein.normalized_similarity(
+                        dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
                             stripped_value, stripped_other)
                         scaling_factor = (
                             len(stripped_value) + len(stripped_other)) / 20
                     else:
-                        dl_striped_similarity = textdistance.damerau_levenshtein.normalized_similarity(
+                        dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
                             value, other)
                         scaling_factor = (
                             len(value) + len(other)) / 20
