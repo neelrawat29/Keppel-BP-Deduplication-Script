@@ -1,6 +1,7 @@
 import sys
 import re
 from functools import reduce
+from numpy import inf
 
 import textdistance
 from openpyxl import workbook, load_workbook
@@ -42,11 +43,13 @@ class PotentialDuplicates:
             return high_score
         else:
             total_score = 0
+            if other_row not in self.score:
+                print('Error: {} not found in {}'.format(other_row, self.score))
             for score in self.score[other_row].values():
-                total_score =+ score
+                total_score = + score
             return total_score
 
-    def __str__(self):
+    def get_message(self, ids):
 
         # list down problems from the most similar other row
         # find the highest count first
@@ -58,14 +61,14 @@ class PotentialDuplicates:
             if string_representation != "":
                 string_representation += '\r\n'
 
-            current_highest = 0
+            current_highest = -inf
 
-            for other_row, columns in self.potential_duplicates.items():
-                if other_row not in printed_rows and len(columns) > current_highest:
-                    current_highest = len(columns)
+            for other_row, _ in self.potential_duplicates.items():
+                if other_row not in printed_rows and self.get_score(other_row) > current_highest:
+                    current_highest = self.get_score(other_row)
                     current_highest_row = other_row
 
-            string_representation += '{}: {}'.format(current_highest_row, reduce(
+            string_representation += '{}: {}'.format(ids[current_highest_row], reduce(
                 lambda x, y: x + ', ' + y, self.potential_duplicates[current_highest_row].values()))
             printed_rows.add(current_highest_row)
 
@@ -107,7 +110,8 @@ class DedupFile:
             total_score, len(self.ids), total_score/len(self.ids)))
 
         for row, dupes in enumerate(self.potential_duplicates):
-            self.ws.cell(row+2, message_column).value = str(dupes)
+            self.ws.cell(
+                row+2, message_column).value = dupes.get_message(self.ids)
 
         score_column = message_column + 1
 
@@ -141,34 +145,37 @@ class DedupFile:
                     dl_similarity = textdistance.damerau_levenshtein.normalized_similarity(
                         value, other)
 
-                    self.add_score(i, column_no, j, (zlib_similarity - 0.5)* scaling_factor)
-                    self.add_score(i, column_no, j, (ro_similarity - 0.5)* scaling_factor)
-                    self.add_score(i, column_no, j, (dl_similarity - 0.5)* scaling_factor)
+                    self.add_score(i, column_no, j,
+                                   (zlib_similarity - 0.5) * scaling_factor)
+                    self.add_score(i, column_no, j,
+                                   (ro_similarity - 0.5) * scaling_factor)
+                    self.add_score(i, column_no, j,
+                                   (dl_similarity - 0.5) * scaling_factor)
 
                     if value == other:
                         self.note_potential_dupe(
-                            i, column_no, self.ids[j], '{} same as {}'.format(column_name, other))
+                            i, column_no, j, '{} same as {}'.format(column_name, other))
                         self.note_potential_dupe(
-                            j, column_no, self.ids[i], '{} same as {}'.format(column_name, value))
+                            j, column_no, i, '{} same as {}'.format(column_name, value))
                         self.add_score(i, column_no, j, 1.5)
 
                     elif zlib_similarity >= 0.75:
                         self.note_potential_dupe(
-                            i, column_no, self.ids[j], '{} similar to {}'.format(column_name, other))
+                            i, column_no, j, '{} similar to {}'.format(column_name, other))
                         self.note_potential_dupe(
-                            j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
+                            j, column_no, i, '{} similar to {}'.format(column_name, value))
                     # stopped using ratcliff because it doesn't really help? But it does pick up quite a few hits that were otherwise missed.
                     elif ro_similarity >= 0.80:
                         self.note_potential_dupe(
-                            i, column_no, self.ids[j], '{} similar to {}'.format(column_name, other))
+                            i, column_no, j, '{} similar to {}'.format(column_name, other))
                         self.note_potential_dupe(
-                            j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
+                            j, column_no, i, '{} similar to {}'.format(column_name, value))
                     elif dl_similarity >= 0.75:
                         # print('DL detects extra {} and {}'.format(value, other))
                         self.note_potential_dupe(
-                            i, column_no, self.ids[j], '{} similar to {}'.format(column_name, other))
+                            i, column_no, j, '{} similar to {}'.format(column_name, other))
                         self.note_potential_dupe(
-                            j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
+                            j, column_no, i, '{} similar to {}'.format(column_name, value))
 
         return
 
@@ -179,6 +186,8 @@ class DedupFile:
         for value in self.iter_row(column_no):
             # strip symbols and spaces
             stripped_value = re.sub('\W', '', value)
+            # strip leading country code
+            stripped_value = re.sub('^[a-zA-Z]{1,2}', '', stripped_value)
             stripped_value = re.sub(
                 '^[09]+', '', stripped_value)  # strip leading 0s and 9s
             stripped_value = re.sub(
@@ -207,22 +216,22 @@ class DedupFile:
 
                     if value == other:
                         self.note_potential_dupe(
-                            i, column_no, self.ids[j], '{} same as {}'.format(column_name, other))
+                            i, column_no, j, '{} same as {}'.format(column_name, other))
                         self.note_potential_dupe(
-                            j, column_no, self.ids[i], '{} same as {}'.format(column_name, value))
+                            j, column_no, i, '{} same as {}'.format(column_name, value))
                         self.add_score(i, column_no, j, 5)
 
                     elif stripped_value == stripped_other:
                         self.note_potential_dupe(
-                            i, column_no, self.ids[j], '{} similar to {}'.format(column_name, other))
+                            i, column_no, j, '{} similar to {}'.format(column_name, other))
                         self.note_potential_dupe(
-                            j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
+                            j, column_no, i, '{} similar to {}'.format(column_name, value))
 
                     elif dl_striped_similarity > 0.85:
                         self.note_potential_dupe(
-                            i, column_no, self.ids[j], '{} similar to {}'.format(column_name, other))
+                            i, column_no, j, '{} similar to {}'.format(column_name, other))
                         self.note_potential_dupe(
-                            j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
+                            j, column_no, i, '{} similar to {}'.format(column_name, value))
 
     def note_potential_dupe(self, row, col, other, message):
         self.potential_duplicates[row].addPotentialDuplicate(
