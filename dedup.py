@@ -29,16 +29,22 @@ class PotentialDuplicates:
         else:
             self.score[other_row] = {col: score}
 
-    def get_score(self):
-        high_score = 0
-        for other_row in self.score.values():
-            current_score = 0
-            for score in other_row.values():
-                current_score += score
-            if current_score > high_score:
-                high_score = current_score
+    def get_score(self, other_row=None):
+        if other_row is None:
+            high_score = 0
+            for other_row in self.score.values():
+                current_score = 0
+                for score in other_row.values():
+                    current_score += score
+                if current_score > high_score:
+                    high_score = current_score
 
-        return high_score
+            return high_score
+        else:
+            total_score = 0
+            for score in self.score[other_row].values():
+                total_score =+ score
+            return total_score
 
     def __str__(self):
 
