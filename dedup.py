@@ -63,7 +63,6 @@ class PotentialDuplicates:
                 lambda x, y: x + ', ' + y, self.potential_duplicates[current_highest_row].values()))
             printed_rows.add(current_highest_row)
 
-
         return string_representation
 
 
@@ -82,7 +81,8 @@ class DedupFile:
         for cell_value in self.iter_row(1):
             self.ids.append(cell_value)
 
-        self.potential_duplicates = [PotentialDuplicates() for _ in range(len(self.ids))]        
+        self.potential_duplicates = [
+            PotentialDuplicates() for _ in range(len(self.ids))]
 
         print('Working on UEN')
         self.deduplicate_UEN(3)
@@ -126,6 +126,8 @@ class DedupFile:
 
                 if self.is_not_none(value) and value[0] == other[0]:
 
+                    scaling_factor = (len(value) + len(other))/20
+
                     zlib_similarity = textdistance.zlib_ncd.normalized_similarity(
                         value, other)
                     ro_similarity = textdistance.ratcliff_obershelp.normalized_similarity(
@@ -133,9 +135,9 @@ class DedupFile:
                     dl_similarity = textdistance.damerau_levenshtein.normalized_similarity(
                         value, other)
 
-                    #self.add_score(i, column_no, j, zlib_similarity)
-                    #self.add_score(i, column_no, j, ro_similarity)
-                    #self.add_score(i, column_no, j, dl_similarity)
+                    self.add_score(i, column_no, j, (zlib_similarity - 0.5)* scaling_factor)
+                    self.add_score(i, column_no, j, (ro_similarity - 0.5)* scaling_factor)
+                    self.add_score(i, column_no, j, (dl_similarity - 0.5)* scaling_factor)
 
                     if value == other:
                         self.note_potential_dupe(
@@ -184,6 +186,19 @@ class DedupFile:
                     break
 
                 if self.is_not_none(value):
+                    if len(stripped_value) > 0 and len(stripped_other) > 0:
+                        dl_striped_similarity = textdistance.damerau_levenshtein.normalized_similarity(
+                            stripped_value, stripped_other)
+                        scaling_factor = (
+                            len(stripped_value) + len(stripped_other)) / 20
+                    else:
+                        dl_striped_similarity = textdistance.damerau_levenshtein.normalized_similarity(
+                            value, other)
+                        scaling_factor = (
+                            len(value) + len(other)) / 20
+                    self.add_score(i, column_no, j,
+                                   (dl_striped_similarity - 0.5)*4 * scaling_factor)
+
                     if value == other:
                         self.note_potential_dupe(
                             i, column_no, self.ids[j], '{} same as {}'.format(column_name, other))
@@ -197,19 +212,11 @@ class DedupFile:
                         self.note_potential_dupe(
                             j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
 
-                        self.add_score(i, column_no, j, ((len(
-                            stripped_value) + len(stripped_other))/(len(value) + len(other))/2 + 0.5)*4)
-
-                    elif len(stripped_value) >= 6:
-                        dl_distance = textdistance.damerau_levenshtein.distance(
-                            stripped_value, stripped_other)
-                        self.add_score(i, column_no, j, (len(
-                            stripped_value) + len(stripped_other) - dl_distance * 2)/(len(value) + len(other))/2*4)
-                        if dl_distance <= 1 or (len(stripped_value) >= 9 and dl_distance <= 2):
-                            self.note_potential_dupe(
-                                i, column_no, self.ids[j], '{} similar to {}'.format(column_name, other))
-                            self.note_potential_dupe(
-                                j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
+                    elif dl_striped_similarity > 0.85:
+                        self.note_potential_dupe(
+                            i, column_no, self.ids[j], '{} similar to {}'.format(column_name, other))
+                        self.note_potential_dupe(
+                            j, column_no, self.ids[i], '{} similar to {}'.format(column_name, value))
 
     def note_potential_dupe(self, row, col, other, message):
         self.potential_duplicates[row].addPotentialDuplicate(
