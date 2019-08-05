@@ -247,7 +247,7 @@ class DedupFile:
 
     @staticmethod
     def is_not_none(value):
-        null_values = set(["", "None", "#N/A", "NA", " ", "-"])
+        null_values = set(["", "None", "#N/A", "NA", " ", "  ", "-"])
         return value not in null_values
 
 
