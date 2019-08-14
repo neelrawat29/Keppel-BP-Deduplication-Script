@@ -99,10 +99,12 @@ class DedupFile:
         self.deduplicate_column(4)
         print('Working on col 5')
         self.deduplicate_column(5)
+        print('Working on col 6')
+        self.deduplicate_column(6, weight=0.5, dupes_expected=True)
 
         message_column = self.ws.max_column
 
-        self.ws.cell(1, message_column).value = 'Messages'
+        self.ws.cell(1, message_column).value = 'Message'
 
         total_score = reduce(
             lambda acc, element: acc + element.get_score(), self.potential_duplicates, 0)
@@ -122,7 +124,7 @@ class DedupFile:
 
         wb.save(filename='output.xlsx')
 
-    def deduplicate_column(self, column_no):
+    def deduplicate_column(self, column_no, weight=1, dupes_expected=False):
         column_name = self.ws.cell(1, column_no).value
         values = []
         for value in self.iter_row(column_no):
@@ -133,8 +135,8 @@ class DedupFile:
                 # enforce first letter similarity
                 if i <= j:
                     break
-                
-                self.compare_values(i, value, j, other, column_no, column_name)
+
+                self.compare_values(i, value, j, other, column_no, column_name, weight, (not dupes_expected))
 
         return
 
@@ -204,29 +206,30 @@ class DedupFile:
         return (str(cell[0]) for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
 
     
-    def compare_values(self, i, value, j, other, column_no, column_name):
+    def compare_values(self, i, value, j, other, column_no, column_name, weight=1, log_message=True):
         '''Compares two values and returns the similarity score. Also logs messages.'''
         if self.is_not_none(value):
 
-            scaling_factor = (len(value) + len(other))/20
+            scaling_factor = weight*(len(value) + len(other))/20
 
             dl_similarity = textdistance.levenshtein.normalized_similarity(value, other)
 
             self.add_score(i, column_no, j,
-                           (dl_similarity - 0.5) * scaling_factor)
+                            (dl_similarity - 0.5) * scaling_factor)
 
-            if value == other:
-                self.note_potential_dupe(
-                    i, column_no, j, '{} same as {}'.format(column_name, other))
-                self.note_potential_dupe(
-                    j, column_no, i, '{} same as {}'.format(column_name, value))
-                self.add_score(i, column_no, j, scaling_factor)
-            elif dl_similarity >= 0.75:
-                # print('DL detects extra {} and {}'.format(value, other))
-                self.note_potential_dupe(
-                    i, column_no, j, '{} similar to {}'.format(column_name, other))
-                self.note_potential_dupe(
-                    j, column_no, i, '{} similar to {}'.format(column_name, value))
+            if log_message:
+                if value == other:
+                    self.note_potential_dupe(
+                        i, column_no, j, '{} same as {}'.format(column_name, other))
+                    self.note_potential_dupe(
+                        j, column_no, i, '{} same as {}'.format(column_name, value))
+                    self.add_score(i, column_no, j, scaling_factor)
+                elif dl_similarity >= 0.75:
+                    # print('DL detects extra {} and {}'.format(value, other))
+                    self.note_potential_dupe(
+                        i, column_no, j, '{} similar to {}'.format(column_name, other))
+                    self.note_potential_dupe(
+                        j, column_no, i, '{} similar to {}'.format(column_name, value))
 
     def compare_UEN():
         pass
