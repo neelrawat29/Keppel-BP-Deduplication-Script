@@ -221,8 +221,7 @@ class DedupFile:
         self.potential_duplicates[other_row].add_score(row, col, score)
 
     def iter_row(self, column_no):
-        for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True):
-            yield str(cell[0])
+        return [str(cell[0]) for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True)]
 
     @staticmethod
     def is_not_none(value):
