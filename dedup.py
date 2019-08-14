@@ -201,7 +201,7 @@ class DedupFile:
         self.potential_duplicates[other_row].add_score(row, col, score)
 
     def iter_row(self, column_no):
-        return [str(cell[0]) for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True)]
+        return (str(cell[0]) for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
 
     
     def compare_values(self, i, value, j, other, column_no, column_name):
