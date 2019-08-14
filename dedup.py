@@ -133,28 +133,8 @@ class DedupFile:
                 # enforce first letter similarity
                 if i <= j:
                     break
-
-                if self.is_not_none(value):# and value[0] == other[0]:
-
-                    scaling_factor = (len(value) + len(other))/20
-
-                    dl_similarity = textdistance.levenshtein.normalized_similarity(value, other)
-
-                    self.add_score(i, column_no, j,
-                                   (dl_similarity - 0.5) * scaling_factor)
-
-                    if value == other:
-                        self.note_potential_dupe(
-                            i, column_no, j, '{} same as {}'.format(column_name, other))
-                        self.note_potential_dupe(
-                            j, column_no, i, '{} same as {}'.format(column_name, value))
-                        self.add_score(i, column_no, j, scaling_factor)
-                    elif dl_similarity >= 0.75:
-                        # print('DL detects extra {} and {}'.format(value, other))
-                        self.note_potential_dupe(
-                            i, column_no, j, '{} similar to {}'.format(column_name, other))
-                        self.note_potential_dupe(
-                            j, column_no, i, '{} similar to {}'.format(column_name, value))
+                
+                self.compare_values(i, value, j, other, column_no, column_name)
 
         return
 
@@ -222,6 +202,34 @@ class DedupFile:
 
     def iter_row(self, column_no):
         return [str(cell[0]) for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True)]
+
+    
+    def compare_values(self, i, value, j, other, column_no, column_name):
+        '''Compares two values and returns the similarity score. Also logs messages.'''
+        if self.is_not_none(value):
+
+            scaling_factor = (len(value) + len(other))/20
+
+            dl_similarity = textdistance.levenshtein.normalized_similarity(value, other)
+
+            self.add_score(i, column_no, j,
+                           (dl_similarity - 0.5) * scaling_factor)
+
+            if value == other:
+                self.note_potential_dupe(
+                    i, column_no, j, '{} same as {}'.format(column_name, other))
+                self.note_potential_dupe(
+                    j, column_no, i, '{} same as {}'.format(column_name, value))
+                self.add_score(i, column_no, j, scaling_factor)
+            elif dl_similarity >= 0.75:
+                # print('DL detects extra {} and {}'.format(value, other))
+                self.note_potential_dupe(
+                    i, column_no, j, '{} similar to {}'.format(column_name, other))
+                self.note_potential_dupe(
+                    j, column_no, i, '{} similar to {}'.format(column_name, value))
+
+    def compare_UEN():
+        pass
 
     @staticmethod
     def is_not_none(value):
