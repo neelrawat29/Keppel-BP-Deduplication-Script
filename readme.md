@@ -1,6 +1,6 @@
 # Excel de-duplication script
 
-A simple script used to find potential duplicates. Requires Python 3. 
+A simple script used to find potential duplicates. Requires Python 3. 64-bit will probably help if running on larger files. 
 
 ## Installation
 
