@@ -6,11 +6,18 @@ A simple script used to find potential duplicates. Requires Python 3. 64-bit wil
 
 Create a virtual environment, update pip, and install requirements.
 
-```bash
+```PowerShell
 python -m venv .
 .\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r .\requirements.txt
+```
+
+## Usage
+
+```PowerShell
+.\Scripts\Activate.ps1
+python .\dedup.py path\to\file.xlsx
 ```
 
 ## To-do
