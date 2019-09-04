@@ -125,6 +125,7 @@ class DedupFile:
         wb.save(filename='output.xlsx')
 
     def deduplicate_column(self, column_no, weight=1, dupes_expected=False):
+        '''Returns an n by n table of weights'''
         column_name = self.ws.cell(1, column_no).value
         values = []
         for value in self.iter_row(column_no):
@@ -206,30 +207,22 @@ class DedupFile:
         return (str(cell[0]) for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
 
     
-    def compare_values(self, i, value, j, other, column_no, column_name, weight=1, log_message=True):
+    def compare_values(self, i, value, j, other, column_no, column_name, weight=1, bonus_to_same=True):
         '''Compares two values and returns the similarity score. Also logs messages.'''
         if self.is_not_none(value):
 
             scaling_factor = weight*(len(value) + len(other))/20
 
+            if value == other and bonus_to_same:
+                self.add_score(i, column_no, j, scaling_factor)
+                return
+
             dl_similarity = textdistance.levenshtein.normalized_similarity(value, other)
 
-            self.add_score(i, column_no, j,
-                            (dl_similarity - 0.5) * scaling_factor)
+            score = (dl_similarity - 0.5) * scaling_factor
 
-            if log_message:
-                if value == other:
-                    self.note_potential_dupe(
-                        i, column_no, j, '{} same as {}'.format(column_name, other))
-                    self.note_potential_dupe(
-                        j, column_no, i, '{} same as {}'.format(column_name, value))
-                    self.add_score(i, column_no, j, scaling_factor)
-                elif dl_similarity >= 0.75:
-                    # print('DL detects extra {} and {}'.format(value, other))
-                    self.note_potential_dupe(
-                        i, column_no, j, '{} similar to {}'.format(column_name, other))
-                    self.note_potential_dupe(
-                        j, column_no, i, '{} similar to {}'.format(column_name, value))
+            self.add_score(i, column_no, j, score)
+
 
     def compare_UEN():
         pass
