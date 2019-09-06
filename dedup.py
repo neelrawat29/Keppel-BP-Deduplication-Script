@@ -19,8 +19,11 @@ class DedupFile:
 
         self.ids = list(self.iter_row(1))
 
-        self.score = [[0 for _ in range(len(self.ids))]
+        self.score = [[1 for _ in range(len(self.ids))]
                       for _ in range(len(self.ids))]
+
+        for i in range(len(self.ids)):
+            self.score[i][i] = 0
 
         print('Working on UEN')
         self.deduplicate_UEN(3)
@@ -92,23 +95,22 @@ class DedupFile:
                         dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
                             stripped_value, stripped_other)
                         scaling_factor = (
-                            len(stripped_value) + len(stripped_other)) / 20
+                            len(stripped_value) + len(stripped_other)) / 5
                     else:
                         dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
                             value, other)
                         scaling_factor = (
-                            len(value) + len(other)) / 20
+                            len(value) + len(other)) / 5
 
                     if value == other:
-                        self.add_score(i, column_no, j, 5)
+                        scaling_factor *= 2
 
-                    else:
-                        self.add_score(
-                            i, column_no, j, (dl_striped_similarity - 0.5)*4 * scaling_factor)
+                    self.add_score(i, column_no, j,
+                                   (dl_striped_similarity*2) ** scaling_factor)
 
     def add_score(self, row, col, other_row, score):
-        self.score[row][other_row] += score
-        self.score[other_row][row] += score
+        self.score[row][other_row] *= score
+        self.score[other_row][row] *= score
 
     def iter_row(self, column_no):
         return (str(cell[0]).upper() for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
@@ -120,13 +122,12 @@ class DedupFile:
             scaling_factor = weight*(len(value) + len(other))/20
 
             if value == other and bonus_to_same:
-                self.add_score(i, column_no, j, scaling_factor)
-                return
+                scaling_factor *= 1.5
 
             dl_similarity = textdistance.levenshtein.normalized_similarity(
                 value, other)
 
-            score = (dl_similarity - 0.5) * scaling_factor
+            score = (dl_similarity*2) ** scaling_factor
 
             self.add_score(i, column_no, j, score)
 
