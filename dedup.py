@@ -93,6 +93,8 @@ class DedupFile:
         self.potential_duplicates = [
             PotentialDuplicates() for _ in range(len(self.ids))]
 
+        self.score = [[0 for _ in range(len(self.ids))] for _ in range(len(self.ids))]
+
         print('Working on UEN')
         self.deduplicate_UEN(3)
         print('Working on col 4')
@@ -102,34 +104,28 @@ class DedupFile:
         print('Working on col 6')
         self.deduplicate_column(6, weight=0.5, dupes_expected=True)
 
-        message_column = self.ws.max_column
+        message_column=self.ws.max_column
 
-        self.ws.cell(1, message_column).value = 'Message'
+        self.ws.cell(1, message_column).value='Message'
 
-        total_score = reduce(
+        total_score=reduce(
             lambda acc, element: acc + element.get_score(), self.potential_duplicates, 0)
         print('Total score  is {} for {} rows (average {})'.format(
             total_score, len(self.ids), total_score/len(self.ids)))
 
-        for row, dupes in enumerate(self.potential_duplicates):
-            self.ws.cell(
-                row+2, message_column).value = dupes.get_message(self.ids)
+        score_column=message_column + 1
 
-        score_column = message_column + 1
-
-        self.ws.cell(1, score_column).value = 'Similarity Score'
+        self.ws.cell(1, score_column).value='Similarity Score'
 
         for row, dupes in enumerate(self.potential_duplicates):
-            self.ws.cell(row+2, score_column).value = dupes.get_score()
+            self.ws.cell(row+2, score_column).value=dupes.get_score()
 
         wb.save(filename='output.xlsx')
 
     def deduplicate_column(self, column_no, weight=1, dupes_expected=False):
         '''Returns an n by n table of weights'''
-        column_name = self.ws.cell(1, column_no).value
-        values = []
-        for value in self.iter_row(column_no):
-            values.append(value.upper())
+        column_name=self.ws.cell(1, column_no).value
+        values=list(self.iter_row(column_no))
 
         for i, value in enumerate(values):
             for j, other in enumerate(values):
@@ -137,25 +133,26 @@ class DedupFile:
                 if i <= j:
                     break
 
-                self.compare_values(i, value, j, other, column_no, column_name, weight, (not dupes_expected))
+                self.compare_values(
+                    i, value, j, other, column_no, column_name, weight, (not dupes_expected))
 
         return
 
     def deduplicate_UEN(self, column_no):
-        column_name = self.ws.cell(1, column_no).value
+        column_name=self.ws.cell(1, column_no).value
 
-        values = []
-        for value in self.iter_row(column_no):
+        def strip_value(value):
             # strip symbols and spaces
-            stripped_value = re.sub('\W', '', value)
+            stripped_value=re.sub('\W', '', value)
             # strip all letter prefixes
-            stripped_value = re.sub('^[a-zA-Z]+', '', stripped_value)
-            stripped_value = re.sub(
+            stripped_value=re.sub('^[a-zA-Z]+', '', stripped_value)
+            stripped_value=re.sub(
                 '^[09]+', '', stripped_value)  # strip leading 0s and 9s
-            stripped_value = re.sub(
+            stripped_value=re.sub(
                 '[0]{2,}$', '', stripped_value)  # strip trailing 0s
+            return stripped_value
 
-            values.append((value, stripped_value))
+        values=[(value, strip_value(value)) for value in self.iter_row(column_no)]
 
         for i, (value, stripped_value) in enumerate(values):
             for j, (other, stripped_other) in enumerate(values):
@@ -164,14 +161,14 @@ class DedupFile:
 
                 if self.is_not_none(value):
                     if len(stripped_value) > 0 and len(stripped_other) > 0:
-                        dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
+                        dl_striped_similarity=textdistance.levenshtein.normalized_similarity(
                             stripped_value, stripped_other)
-                        scaling_factor = (
+                        scaling_factor=(
                             len(stripped_value) + len(stripped_other)) / 20
                     else:
-                        dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
+                        dl_striped_similarity=textdistance.levenshtein.normalized_similarity(
                             value, other)
-                        scaling_factor = (
+                        scaling_factor=(
                             len(value) + len(other)) / 20
                     self.add_score(i, column_no, j,
                                    (dl_striped_similarity - 0.5)*4 * scaling_factor)
@@ -204,22 +201,23 @@ class DedupFile:
         self.potential_duplicates[other_row].add_score(row, col, score)
 
     def iter_row(self, column_no):
-        return (str(cell[0]) for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
+        return (str(cell[0]).upper() for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
 
-    
+
     def compare_values(self, i, value, j, other, column_no, column_name, weight=1, bonus_to_same=True):
         '''Compares two values and returns the similarity score. Also logs messages.'''
         if self.is_not_none(value):
 
-            scaling_factor = weight*(len(value) + len(other))/20
+            scaling_factor=weight*(len(value) + len(other))/20
 
             if value == other and bonus_to_same:
                 self.add_score(i, column_no, j, scaling_factor)
                 return
 
-            dl_similarity = textdistance.levenshtein.normalized_similarity(value, other)
+            dl_similarity=textdistance.levenshtein.normalized_similarity(
+                value, other)
 
-            score = (dl_similarity - 0.5) * scaling_factor
+            score=(dl_similarity - 0.5) * scaling_factor
 
             self.add_score(i, column_no, j, score)
 
@@ -229,10 +227,10 @@ class DedupFile:
 
     @staticmethod
     def is_not_none(value):
-        null_values = set(["", "None", "#N/A", "NA", " ", "  ", "-"])
+        null_values=set(["", "None", "#N/A", "NA", " ", "  ", "-"])
         return value not in null_values
 
 
-file_name = sys.argv[1]
+file_name=sys.argv[1]
 
-dedup = DedupFile(file_name)
+dedup=DedupFile(file_name)
