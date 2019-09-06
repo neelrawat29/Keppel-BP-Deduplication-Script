@@ -90,7 +90,7 @@ class DedupFile:
                 if i <= j:
                     break
 
-                if self.is_not_none(value):
+                if self.is_not_none(value) and self.is_not_none(other):
                     if len(stripped_value) > 0 and len(stripped_other) > 0:
                         dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
                             stripped_value, stripped_other)
@@ -117,7 +117,7 @@ class DedupFile:
 
     def compare_values(self, i, value, j, other, column_no, column_name, weight=1, bonus_to_same=True):
         '''Compares two values and returns the similarity score. Also logs messages.'''
-        if self.is_not_none(value):
+        if self.is_not_none(value) and self.is_not_none(other):
 
             scaling_factor = weight*(len(value) + len(other))/20
 
@@ -127,7 +127,9 @@ class DedupFile:
             dl_similarity = textdistance.levenshtein.normalized_similarity(
                 value, other)
 
-            score = (dl_similarity*2) ** scaling_factor
+            zl_similarity = textdistance.zlib_ncd.normalized_similarity(value, other)
+
+            score = (max(dl_similarity, zl_similarity)*2) ** scaling_factor
 
             self.add_score(i, column_no, j, score)
 
