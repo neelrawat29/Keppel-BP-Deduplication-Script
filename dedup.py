@@ -166,6 +166,7 @@ class DedupFile:
 
         values = []
         for value in self.iter_row(column_no):
+            value = value.upper()
             # strip symbols and spaces
             stripped_value = re.sub('\W', '', value)
             # strip all letter prefixes
