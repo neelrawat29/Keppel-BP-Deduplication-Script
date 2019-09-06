@@ -7,74 +7,6 @@ import textdistance
 from openpyxl import workbook, load_workbook
 
 
-# TODO: better display of duplicates
-class PotentialDuplicates:
-    def __init__(self, other_row=None, col=None, message=None):
-        self.potential_duplicates = {}
-        self.score = {}
-        if other_row is not None:
-            self.addPotentialDuplicate(other_row, col, message)
-
-    def addPotentialDuplicate(self, other_row, col, message):
-
-        if other_row in self.potential_duplicates and not col in self.potential_duplicates[other_row]:
-            self.potential_duplicates[other_row][col] = message
-
-        else:
-            self.potential_duplicates[other_row] = {col: message}
-
-    def add_score(self, other_row, col, score):
-        if other_row in self.score:
-            if not (col in self.score[other_row]) or (col in self.score[other_row] and self.score[other_row][col] < score):
-                self.score[other_row][col] = score
-        else:
-            self.score[other_row] = {col: score}
-
-    def get_score(self, other_row=None):
-        if other_row is None:
-            high_score = 0
-            for other_row in self.score.values():
-                current_score = 0
-                for score in other_row.values():
-                    current_score += score
-                if current_score > high_score:
-                    high_score = current_score
-
-            return high_score
-        else:
-            total_score = 0
-            if other_row not in self.score:
-                print('Error: {} not found in {}'.format(other_row, self.score))
-            for score in self.score[other_row].values():
-                total_score = + score
-            return total_score
-
-    def get_message(self, ids):
-
-        # list down problems from the most similar other row
-        # find the highest count first
-
-        string_representation = ""
-        printed_rows = set()
-
-        for _ in range(len(self.potential_duplicates)):
-            if string_representation != "":
-                string_representation += '\r\n'
-
-            current_highest = -inf
-
-            for other_row, _ in self.potential_duplicates.items():
-                if other_row not in printed_rows and self.get_score(other_row) > current_highest:
-                    current_highest = self.get_score(other_row)
-                    current_highest_row = other_row
-
-            string_representation += '{}: {}'.format(ids[current_highest_row], reduce(
-                lambda x, y: x + ', ' + y, self.potential_duplicates[current_highest_row].values()))
-            printed_rows.add(current_highest_row)
-
-        return string_representation
-
-
 class DedupFile:
 
     def __init__(self, file_name):
@@ -85,13 +17,13 @@ class DedupFile:
 
         # Assume the first column is the ID, which will then be used to identify
 
-        self.ids = []
+        self.ids = list(self.iter_row(1))
 
-        for cell_value in self.iter_row(1):
-            self.ids.append(cell_value.upper())
+        self.score = [[1 for _ in range(len(self.ids))]
+                      for _ in range(len(self.ids))]
 
-        self.potential_duplicates = [
-            PotentialDuplicates() for _ in range(len(self.ids))]
+        for i in range(len(self.ids)):
+            self.score[i][i] = 0
 
         print('Working on UEN')
         self.deduplicate_UEN(3)
@@ -106,29 +38,24 @@ class DedupFile:
 
         self.ws.cell(1, message_column).value = 'Message'
 
-        total_score = reduce(
-            lambda acc, element: acc + element.get_score(), self.potential_duplicates, 0)
+        total_score = sum((max(score_array) for score_array in self.score))
+
         print('Total score  is {} for {} rows (average {})'.format(
             total_score, len(self.ids), total_score/len(self.ids)))
 
-        for row, dupes in enumerate(self.potential_duplicates):
-            self.ws.cell(
-                row+2, message_column).value = dupes.get_message(self.ids)
-
-        score_column = message_column + 1
+        score_column = self.ws.max_column + 1
 
         self.ws.cell(1, score_column).value = 'Similarity Score'
 
-        for row, dupes in enumerate(self.potential_duplicates):
-            self.ws.cell(row+2, score_column).value = dupes.get_score()
+        for i, score_array in enumerate(self.score):
+            self.ws.cell(i+2, score_column).value = max(score_array)
 
         wb.save(filename='output.xlsx')
 
     def deduplicate_column(self, column_no, weight=1, dupes_expected=False):
+        '''Returns an n by n table of weights'''
         column_name = self.ws.cell(1, column_no).value
-        values = []
-        for value in self.iter_row(column_no):
-            values.append(value.upper())
+        values = list(self.iter_row(column_no))
 
         for i, value in enumerate(values):
             for j, other in enumerate(values):
@@ -136,37 +63,15 @@ class DedupFile:
                 if i <= j:
                     break
 
-                if self.is_not_none(value):# and value[0] == other[0]:
-
-                    scaling_factor = weight*(len(value) + len(other))/20
-
-                    dl_similarity = textdistance.levenshtein.normalized_similarity(value, other)
-
-                    self.add_score(i, column_no, j,
-                                   (dl_similarity - 0.5) * scaling_factor)
-
-                    if not dupes_expected:
-                        if value == other:
-                            self.note_potential_dupe(
-                                i, column_no, j, '{} same as {}'.format(column_name, other))
-                            self.note_potential_dupe(
-                                j, column_no, i, '{} same as {}'.format(column_name, value))
-                            self.add_score(i, column_no, j, scaling_factor)
-                        elif dl_similarity >= 0.75:
-                            # print('DL detects extra {} and {}'.format(value, other))
-                            self.note_potential_dupe(
-                                i, column_no, j, '{} similar to {}'.format(column_name, other))
-                            self.note_potential_dupe(
-                                j, column_no, i, '{} similar to {}'.format(column_name, value))
+                self.compare_values(
+                    i, value, j, other, column_no, column_name, weight, (not dupes_expected))
 
         return
 
     def deduplicate_UEN(self, column_no):
         column_name = self.ws.cell(1, column_no).value
 
-        values = []
-        for value in self.iter_row(column_no):
-            value = value.upper()
+        def strip_value(value):
             # strip symbols and spaces
             stripped_value = re.sub('\W', '', value)
             # strip all letter prefixes
@@ -175,8 +80,10 @@ class DedupFile:
                 '^[09]+', '', stripped_value)  # strip leading 0s and 9s
             stripped_value = re.sub(
                 '[0]{2,}$', '', stripped_value)  # strip trailing 0s
+            return stripped_value
 
-            values.append((value, stripped_value))
+        values = [(value, strip_value(value))
+                  for value in self.iter_row(column_no)]
 
         for i, (value, stripped_value) in enumerate(values):
             for j, (other, stripped_other) in enumerate(values):
@@ -188,45 +95,44 @@ class DedupFile:
                         dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
                             stripped_value, stripped_other)
                         scaling_factor = (
-                            len(stripped_value) + len(stripped_other)) / 20
+                            len(stripped_value) + len(stripped_other)) / 5
                     else:
                         dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
                             value, other)
                         scaling_factor = (
-                            len(value) + len(other)) / 20
-                    self.add_score(i, column_no, j,
-                                   (dl_striped_similarity - 0.5)*4 * scaling_factor)
+                            len(value) + len(other)) / 5
 
                     if value == other:
-                        self.note_potential_dupe(
-                            i, column_no, j, '{} same as {}'.format(column_name, other))
-                        self.note_potential_dupe(
-                            j, column_no, i, '{} same as {}'.format(column_name, value))
-                        self.add_score(i, column_no, j, 5)
+                        scaling_factor *= 2
 
-                    elif stripped_value == stripped_other:
-                        self.note_potential_dupe(
-                            i, column_no, j, '{} similar to {}'.format(column_name, other))
-                        self.note_potential_dupe(
-                            j, column_no, i, '{} similar to {}'.format(column_name, value))
-
-                    elif dl_striped_similarity > 0.85:
-                        self.note_potential_dupe(
-                            i, column_no, j, '{} similar to {}'.format(column_name, other))
-                        self.note_potential_dupe(
-                            j, column_no, i, '{} similar to {}'.format(column_name, value))
-
-    def note_potential_dupe(self, row, col, other, message):
-        self.potential_duplicates[row].addPotentialDuplicate(
-            other, col, message)
+                    self.add_score(i, column_no, j,
+                                   (dl_striped_similarity*2) ** scaling_factor)
 
     def add_score(self, row, col, other_row, score):
-        self.potential_duplicates[row].add_score(other_row, col, score)
-        self.potential_duplicates[other_row].add_score(row, col, score)
+        self.score[row][other_row] *= score
+        self.score[other_row][row] *= score
 
     def iter_row(self, column_no):
-        for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True):
-            yield str(cell[0])
+        return (str(cell[0]).upper() for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
+
+    def compare_values(self, i, value, j, other, column_no, column_name, weight=1, bonus_to_same=True):
+        '''Compares two values and returns the similarity score. Also logs messages.'''
+        if self.is_not_none(value):
+
+            scaling_factor = weight*(len(value) + len(other))/20
+
+            if value == other and bonus_to_same:
+                scaling_factor *= 1.5
+
+            dl_similarity = textdistance.levenshtein.normalized_similarity(
+                value, other)
+
+            score = (dl_similarity*2) ** scaling_factor
+
+            self.add_score(i, column_no, j, score)
+
+    def compare_UEN():
+        pass
 
     @staticmethod
     def is_not_none(value):
