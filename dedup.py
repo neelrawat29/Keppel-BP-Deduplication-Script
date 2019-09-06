@@ -88,7 +88,7 @@ class DedupFile:
         self.ids = []
 
         for cell_value in self.iter_row(1):
-            self.ids.append(cell_value)
+            self.ids.append(cell_value.upper())
 
         self.potential_duplicates = [
             PotentialDuplicates() for _ in range(len(self.ids))]
@@ -129,7 +129,7 @@ class DedupFile:
         column_name = self.ws.cell(1, column_no).value
         values = []
         for value in self.iter_row(column_no):
-            values.append(value)
+            values.append(value.upper())
 
         for i, value in enumerate(values):
             for j, other in enumerate(values):
