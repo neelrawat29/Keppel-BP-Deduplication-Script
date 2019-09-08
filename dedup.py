@@ -26,6 +26,15 @@ class DedupFile:
         for i in range(len(self.ids)):
             self.score[i, i] = 0
 
+        if ignore_same_source:
+            for i in range(len(self.ids)):
+                for j in range(len(self.ids)):
+                    if i <= j:
+                        break
+                    if self.source[i] == self.source[j]:
+                        self.score[i, j] = 0
+                        self.score[j, i] = 0
+
         print('Working on UEN')
         self.deduplicate_UEN(3)
         print('Working on col 4')
@@ -148,6 +157,6 @@ class DedupFile:
 
 file_name = sys.argv[1]
 
-ignore_same_source = False if len(sys.argv)<=2 else sys.argv[2]
+ignore_same_source = False if len(sys.argv) <= 2 else sys.argv[2]
 
 dedup = DedupFile(file_name, ignore_same_source)
