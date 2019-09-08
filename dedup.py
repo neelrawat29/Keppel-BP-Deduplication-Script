@@ -1,7 +1,7 @@
 import sys
 import re
 from functools import reduce
-from numpy import inf
+import numpy as np
 
 import textdistance
 from openpyxl import workbook, load_workbook
@@ -9,21 +9,22 @@ from openpyxl import workbook, load_workbook
 
 class DedupFile:
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, ignore_same_source=False):
         print("Opening workbook %s" % file_name)
         wb = load_workbook(file_name)
         self.ws = wb.active
+        self.ignore_same_source = ignore_same_source
         # Copy entire workbook into memory as an easier-to-access data structure
 
         # Assume the first column is the ID, which will then be used to identify
 
         self.ids = list(self.iter_row(1))
+        self.source = list(self.iter_row(2))
 
-        self.score = [[1 for _ in range(len(self.ids))]
-                      for _ in range(len(self.ids))]
+        self.score = np.ones((len(self.ids), len(self.ids)), np.float16)
 
         for i in range(len(self.ids)):
-            self.score[i][i] = 0
+            self.score[i, i] = 0
 
         print('Working on UEN')
         self.deduplicate_UEN(3)
@@ -38,7 +39,7 @@ class DedupFile:
 
         self.ws.cell(1, message_column).value = 'Message'
 
-        total_score = sum((max(score_array) for score_array in self.score))
+        total_score = sum(np.max(self.score, axis=0))
 
         print('Total score  is {} for {} rows (average {})'.format(
             total_score, len(self.ids), total_score/len(self.ids)))
@@ -47,8 +48,8 @@ class DedupFile:
 
         self.ws.cell(1, score_column).value = 'Similarity Score'
 
-        for i, score_array in enumerate(self.score):
-            self.ws.cell(i+2, score_column).value = max(score_array)
+        for i, max_score in enumerate(np.max(self.score, axis=0)):
+            self.ws.cell(i+2, score_column).value = max_score
 
         wb.save(filename='output.xlsx')
 
@@ -90,6 +91,9 @@ class DedupFile:
                 if i <= j:
                     break
 
+                if self.ignore_same_source and self.source[i] == self.source[j]:
+                    break
+
                 if self.is_not_none(value) and self.is_not_none(other):
                     if len(stripped_value) > 0 and len(stripped_other) > 0:
                         dl_striped_similarity = textdistance.levenshtein.normalized_similarity(
@@ -109,8 +113,8 @@ class DedupFile:
                                    (dl_striped_similarity*2) ** scaling_factor)
 
     def add_score(self, row, col, other_row, score):
-        self.score[row][other_row] *= score
-        self.score[other_row][row] *= score
+        self.score[row, other_row] *= score
+        self.score[other_row, row] *= score
 
     def iter_row(self, column_no):
         return (str(cell[0]).upper() for cell in self.ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True))
@@ -144,4 +148,6 @@ class DedupFile:
 
 file_name = sys.argv[1]
 
-dedup = DedupFile(file_name)
+ignore_same_source = False if len(sys.argv)<=2 else sys.argv[2]
+
+dedup = DedupFile(file_name, ignore_same_source)
