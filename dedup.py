@@ -127,9 +127,9 @@ class DedupFile:
             dl_similarity = textdistance.levenshtein.normalized_similarity(
                 value, other)
 
-            zl_similarity = textdistance.zlib_ncd.normalized_similarity(value, other)
-
-            score = (max(dl_similarity, zl_similarity)*2) ** scaling_factor
+            # zl_similarity = textdistance.zlib_ncd.normalized_similarity(value, other)
+            # score = (max(dl_similarity, zl_similarity)*2) ** scaling_factor
+            score = (dl_similarity*2) ** scaling_factor
 
             self.add_score(i, column_no, j, score)
 
