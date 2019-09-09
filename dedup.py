@@ -73,6 +73,9 @@ class DedupFile:
                 if i <= j:
                     break
 
+                if self.ignore_same_source and self.source[i] == self.source[j]:
+                    break
+
                 self.compare_values(
                     i, value, j, other, column_no, column_name, weight, (not dupes_expected))
 
