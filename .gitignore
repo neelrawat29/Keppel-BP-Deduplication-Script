@@ -3,3 +3,4 @@ Include
 Lib
 Scripts
 *.xlsx
+!/template.xlsx
