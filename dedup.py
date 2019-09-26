@@ -44,10 +44,6 @@ class DedupFile:
         print('Working on col 6')
         self.deduplicate_column(6, weight=0.5, dupes_expected=True)
 
-        message_column = self.ws.max_column
-
-        self.ws.cell(1, message_column).value = 'Message'
-
         total_score = sum(np.max(self.score, axis=0))
 
         print('Total score  is {} for {} rows (average {})'.format(
@@ -69,7 +65,6 @@ class DedupFile:
 
         for i, value in enumerate(values):
             for j, other in enumerate(values):
-                # enforce first letter similarity
                 if i <= j:
                     break
 
@@ -82,7 +77,7 @@ class DedupFile:
         return
 
     def deduplicate_UEN(self, column_no):
-        column_name = self.ws.cell(1, column_no).value
+        # column_name = self.ws.cell(1, column_no).value
 
         def strip_value(value):
             # strip symbols and spaces

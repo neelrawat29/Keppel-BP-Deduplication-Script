@@ -1,6 +1,6 @@
 # Excel de-duplication script
 
-A simple script used to find potential duplicates. Requires Python 3. 64-bit will probably help if running on larger files. 
+A simple script used to find potential duplicates. Requires Python 3. 64-bit will probably help if running on larger files.  
 
 ## Installation
 
@@ -19,6 +19,14 @@ pip install -r .\requirements.txt
 .\Scripts\Activate.ps1
 python .\dedup.py path\to\file.xlsx
 ```
+
+To ignore entries from the same source, add `True` as the second argument
+
+```PowerShell
+python .\dedup.py path\to\file.xlsx True
+```
+
+Yes, this needs to be done better.
 
 ## To-do
 
