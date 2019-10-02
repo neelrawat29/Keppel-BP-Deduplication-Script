@@ -6,6 +6,8 @@ import numpy as np
 import textdistance
 from openpyxl import workbook, load_workbook
 
+from tqdm import tqdm
+
 
 class DedupFile:
 
@@ -35,13 +37,9 @@ class DedupFile:
                         self.score[i, j] = 0
                         self.score[j, i] = 0
 
-        print('Working on UEN')
         self.deduplicate_UEN(3)
-        print('Working on col 4')
         self.deduplicate_column(4)
-        print('Working on col 5')
         self.deduplicate_column(5)
-        print('Working on col 6')
         self.deduplicate_column(6, weight=0.5, dupes_expected=True)
 
         total_score = sum(np.max(self.score, axis=0))
@@ -63,7 +61,7 @@ class DedupFile:
         column_name = self.ws.cell(1, column_no).value
         values = list(self.iter_row(column_no))
 
-        for i, value in enumerate(values):
+        for i, value in tqdm(enumerate(values), total=len(self.ids), desc='Processing {}'.format(column_name)):
             for j, other in enumerate(values):
                 if i <= j:
                     break
@@ -93,7 +91,7 @@ class DedupFile:
         values = [(value, strip_value(value))
                   for value in self.iter_row(column_no)]
 
-        for i, (value, stripped_value) in enumerate(values):
+        for i, (value, stripped_value) in tqdm(enumerate(values), total=len(self.ids), desc='Processing UEN'):
             for j, (other, stripped_other) in enumerate(values):
                 if i <= j:
                     break
@@ -143,9 +141,6 @@ class DedupFile:
             score = (dl_similarity*2) ** scaling_factor
 
             self.add_score(i, column_no, j, score)
-
-    def compare_UEN():
-        pass
 
     @staticmethod
     def is_not_none(value):
