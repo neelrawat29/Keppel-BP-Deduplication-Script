@@ -84,8 +84,8 @@ class DedupeRange:
         self.pid = round(row_end/self.rows)
 
     def range_rows(self, desc=None):
-        """An iterator for the rows. Also displays a progress bar if it is the last (and slowest) process."""
-        if self.row_end == self.rows_total:
+        """An iterator for the rows. Also displays a progress bar if it is the first process."""
+        if self.row_start == 0:
             return tqdm(range(self.row_start, self.row_end), desc=desc)
         return range(self.row_start, self.row_end)
 

@@ -29,23 +29,41 @@ def dedupe_file(file_path, ignore_same_source=False):
         return [str(cell[0]).upper() for cell in ws.iter_rows(min_row=2, min_col=column_no, max_col=column_no, values_only=True)]
 
     ids = iter_col(1)
-    count = len(ids)
+    row_count = len(ids)
 
     source = iter_col(2) if ignore_same_source else None
 
     n_proc = mp.cpu_count() - 1
-    chunk_size = round(count/n_proc + .5)
-    start_end_range = [(i*chunk_size, min((i+1)*chunk_size, count))
-                       for i in range(n_proc)]
+    chunk_size = round(row_count/n_proc + .5)
+
+    def get_row_range():
+        '''Partitions the ranges into roughly equal chunks for parallel processing'''
+        target_elements = round(row_count ** 2 / n_proc / 2)
+        row_range = []
+        row_start = 0
+        row_end = 0
+
+        for n in range(n_proc):
+            elements_current = 0
+            while elements_current < target_elements and row_end < row_count:
+                elements_current += row_end
+                row_end += 1
+
+            row_range.append((row_start, row_end))
+            row_start = row_end
+            
+        return row_range
+
+    row_range = get_row_range()
 
     with mp.Pool(processes=n_proc) as pool:
         proc_results = [pool.apply_async(process_range, args=(
-            *r, iter_col(3), iter_col(4), iter_col(5), iter_col(6), source)) for r in start_end_range]
+            *r, iter_col(3), iter_col(4), iter_col(5), iter_col(6), source)) for r in row_range]
         result = [r.get() for r in proc_results]
 
     score = np.concatenate(result)
 
-    score += np.flipud(np.rot90(score))
+    score += score.T
 
     total_score = sum(np.max(score, axis=0))
     print('Total score  is {} for {} rows (average {})'.format(
