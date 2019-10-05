@@ -30,5 +30,7 @@ Yes, this needs to be done better.
 
 ## To-do
 
+* Add tests (see: https://gist.github.com/sloria/7001839)
+* Incorporate numba (see: https://stackoverflow.com/questions/35215161/most-efficient-way-to-map-function-over-numpy-array): compiled code should be a lot faster
 * Set rows to automatically sort and format based off the score (see: https://stackoverflow.com/a/46313587)
 * Set up a webserver
