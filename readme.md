@@ -30,5 +30,5 @@ Yes, this needs to be done better.
 
 ## To-do
 
-* Rewrite script to be less garbage (since the requirements changed several time, the current method is really quite inefficient)
-* Add a sample input file (and tests?)
+* Set rows to automatically sort and format based off the score (see: https://stackoverflow.com/a/46313587)
+* Set up a webserver
