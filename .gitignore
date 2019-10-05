@@ -4,3 +4,4 @@ Lib
 Scripts
 *.xlsx
 !/template.xlsx
+__pycache__

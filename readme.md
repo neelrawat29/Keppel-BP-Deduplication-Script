@@ -17,13 +17,13 @@ pip install -r .\requirements.txt
 
 ```PowerShell
 .\Scripts\Activate.ps1
-python .\dedup.py path\to\file.xlsx
+python .\dedupe_file.py path\to\file.xlsx
 ```
 
 To ignore entries from the same source, add `True` as the second argument
 
 ```PowerShell
-python .\dedup.py path\to\file.xlsx True
+python .\dedupe_file.py path\to\file.xlsx True
 ```
 
 Yes, this needs to be done better.
