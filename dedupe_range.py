@@ -1,41 +1,41 @@
 import numpy as np
 import re
-from textdistance import levenshtein
+import textdistance
 from tqdm import tqdm
 
-normalized_similarity = levenshtein.normalized_similarity
+normalized_similarity = textdistance.levenshtein.normalized_similarity
 
 # Set of null values that should be ignored in score computation
 NULL_VALUES = set(["", "None", "#N/A", "NA", " ", "  ", "-"])
 
 
-def calculate_similarity(value, other, previous_score=1, weight=1, exact_match_weight=None):
+def calculate_similarity(value, other, score_previous=1, weight=1, weight_exact_match=None):
     """Compares two values and returns the new similarity score
 
     Keyword arguments:
     value -- value to compare
     other -- other value to compare against
-    previous_score -- previous score before factoring in the two values
+    score_previous -- previous score before factoring in the two values
     weight -- relative weight assigned to the these values, higher weights doesn't affect negative scores
-    exact_match_weight -- weight given to completely identical values, defaults to weight
+    weight_exact_match -- weight given to completely identical values, defaults to weight
     """
 
-    if previous_score == 0 or value in NULL_VALUES or other in NULL_VALUES:
-        return previous_score
+    if score_previous == 0 or value in NULL_VALUES or other in NULL_VALUES:
+        return score_previous
 
-    if exact_match_weight is None:
-        exact_match_weight = weight
+    if weight_exact_match is None:
+        weight_exact_match = weight
 
     scaling_factor = (len(value) + len(other))/20
     # initial scaling factor based on length
     # 20 is an arbitrary factor here as a measurement of length of the field
 
     if value == other:
-        scaling_factor *= exact_match_weight
+        scaling_factor *= weight_exact_match
         score = 2
 
     elif weight == 0:  # only identical matches matter
-        return previous_score
+        return score_previous
 
     else:
         score = normalized_similarity(value, other)
@@ -46,7 +46,7 @@ def calculate_similarity(value, other, previous_score=1, weight=1, exact_match_w
             score *= 2
             scaling_factor *= weight
 
-    return previous_score*(score**scaling_factor)
+    return score_previous*(score**scaling_factor)
 
 
 v_calculate_similarity = np.vectorize(calculate_similarity)
@@ -54,53 +54,60 @@ v_calculate_similarity = np.vectorize(calculate_similarity)
 
 class DedupeRange:
 
-    def __init__(self, total_rows, start_row=0, end_row=None, source=None):
+    def __init__(self, rows_total, row_start=0, row_end=None, source=None):
         """Initiates a class to process a range of rows for de-duplication
 
         Keyword arguments:
-        total_rows -- the total number of rows in the file
-        start_row -- the index to start at
-        end_row -- the index to end at
+        rows_total -- the total number of rows in the file
+        row_start -- the index to start at
+        row_end -- the index to end at
         source -- a list detailing the source file of each row,
                     rows from the same source are not checked against each other
         """
-        if end_row is None:
-            end_row = total_rows
+        if row_end is None:
+            row_end = rows_total
 
-        self.processed_rows = end_row - start_row
-        self.start_row = start_row
-        self.end_row = end_row
-        self.total_rows = total_rows
+        self.rows = row_end - row_start
+        self.row_start = row_start
+        self.row_end = row_end
+        self.rows_total = rows_total
 
-        self.score = np.tri(self.processed_rows, total_rows, start_row - 1)
+        self.score = np.tri(self.rows, rows_total, row_start - 1)
 
         if source is not None:
             np_source = np.array(source)
-            for row in range(start_row, end_row):
-                i = row - start_row
+            for row in self.range_rows('Initializing'):
+                i = row - row_start
                 self.score[i] *= np_source != source[row]
 
-        self.column_count = 0
+        self.col_count = 0
+        self.pid = round(row_end/self.rows)
 
-    def process(self, values, weight=1, exact_match_weight=1.5):
+    def range_rows(self, desc=None):
+        """An iterator for the rows. Also displays a progress bar if it is the last (and slowest) process."""
+        if self.row_end == self.rows_total:
+            return tqdm(range(self.row_start, self.row_end), desc=desc)
+        return range(self.row_start, self.row_end)
+
+    def process(self, values, weight=1, weight_exact_match=1.5):
         """Processes a row of values
 
         Keyword arguments:
         values -- the list of values to look for duplicates
         weight -- relative weight assigned to the these values, higher weights doesn't affect negative scores
-        exact_match_weight -- weight given to completely identical values, defaults to weight
+        weight_exact_match -- weight given to completely identical values, defaults to weight
         """
+        self.col_count += 1
 
         values = np.array(values)
 
-        for row in tqdm(range(self.start_row, self.end_row)):
-            i = row - self.start_row
+        for row in self.range_rows('Col {}'.format(self.col_count)):
+            i = row - self.row_start
             self.score[i] = v_calculate_similarity(
-                values[row], values, self.score[i], weight, exact_match_weight)
+                values[row], values, self.score[i], weight, weight_exact_match)
 
     def process_UEN(self, values):
-
-        assert len(values) == len(self.score[0])
+        self.col_count += 1
 
         def strip_value(value):
             # strip symbols and spaces
@@ -116,8 +123,8 @@ class DedupeRange:
         stripped_values = np.array([strip_value(value) for value in values])
         values = np.array(values)
 
-        for row in tqdm(range(self.start_row, self.end_row)):
-            i = row - self.start_row
+        for row in self.range_rows('UEN'):
+            i = row - self.row_start
             self.score[i] = np.maximum(
                 v_calculate_similarity(
                     stripped_values[row], stripped_values, self.score[i], 3, 3),
