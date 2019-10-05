@@ -1,6 +1,7 @@
 import numpy as np
 import re
 from textdistance import levenshtein
+from tqdm import tqdm
 
 normalized_similarity = levenshtein.normalized_similarity
 
@@ -15,7 +16,7 @@ def calculate_similarity(value, other, previous_score=1, weight=1, exact_match_w
     value -- value to compare
     other -- other value to compare against
     previous_score -- previous score before factoring in the two values
-    weight -- the relative weight to assign to the these values if similar (does not affect score if dissimilar)
+    weight -- relative weight assigned to the these values, higher weights doesn't affect negative scores
     exact_match_weight -- weight given to completely identical values, defaults to weight
     """
 
@@ -40,6 +41,7 @@ def calculate_similarity(value, other, previous_score=1, weight=1, exact_match_w
         score = normalized_similarity(value, other)
         if score < 1:
             score = 0.5 + score
+            scaling_factor *= weight if weight < 1 else 1
         else:
             score *= 2
             scaling_factor *= weight
@@ -74,8 +76,9 @@ class DedupeRange:
 
         if source is not None:
             np_source = np.array(source)
-            for i in range(start_row, end_row):
-                self.score[i] *= np_source != source[i]
+            for row in range(start_row, end_row):
+                i = row - start_row
+                self.score[i] *= np_source != source[row]
 
         self.column_count = 0
 
@@ -84,17 +87,20 @@ class DedupeRange:
 
         Keyword arguments:
         values -- the list of values to look for duplicates
-        weight -- the relative weight to assign to the these values if similar (does not affect score if dissimilar)
+        weight -- relative weight assigned to the these values, higher weights doesn't affect negative scores
         exact_match_weight -- weight given to completely identical values, defaults to weight
         """
 
         values = np.array(values)
 
-        for i in range(self.start_row, self.end_row):
+        for row in tqdm(range(self.start_row, self.end_row)):
+            i = row - self.start_row
             self.score[i] = v_calculate_similarity(
-                values[i], values, self.score[i], weight, exact_match_weight)
+                values[row], values, self.score[i], weight, exact_match_weight)
 
     def process_UEN(self, values):
+
+        assert len(values) == len(self.score[0])
 
         def strip_value(value):
             # strip symbols and spaces
@@ -110,9 +116,11 @@ class DedupeRange:
         stripped_values = np.array([strip_value(value) for value in values])
         values = np.array(values)
 
-        for i in range(self.start_row, self.end_row):
+        for row in tqdm(range(self.start_row, self.end_row)):
+            i = row - self.start_row
             self.score[i] = np.maximum(
                 v_calculate_similarity(
-                    stripped_values[i], stripped_values, self.score[i], 3, 3),
-                v_calculate_similarity(values[i], values, self.score[i], 0, 4),
+                    stripped_values[row], stripped_values, self.score[i], 3, 3),
+                v_calculate_similarity(
+                    values[row], values, self.score[i], 0, 4),
             )
