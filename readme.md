@@ -1,6 +1,8 @@
 # Excel de-duplication script
 
-A simple script used to find potential duplicates. Requires Python 3. 64-bit will probably help if running on larger files.  
+One-time script for finding duplicates via fuzzy matching, created for data migration in some project. Putting it here in case I find a use for it some other time.
+
+Requires Python 3. 64-bit will probably help if running on larger files.  
 
 ## Installation
 
