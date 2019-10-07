@@ -1,5 +1,6 @@
-abydos==0.4.0
+﻿abydos==0.4.0
 deprecation==2.0.6
+Django==2.2.6
 et-xmlfile==1.0.1
 jdcal==1.4.1
 jellyfish==0.7.2
@@ -9,8 +10,10 @@ packaging==19.0
 py-stringmatching==0.4.1
 pyparsing==2.4.0
 python-Levenshtein==0.12.0
+pytz==2019.3
 pyxDamerauLevenshtein==1.5.3
 six==1.12.0
+sqlparse==0.3.0
 tabulate==0.8.3
 textdistance==4.1.3
 tqdm==4.36.1
