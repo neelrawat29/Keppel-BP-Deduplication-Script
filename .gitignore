@@ -5,3 +5,4 @@ Scripts
 *.xlsx
 !/template.xlsx
 __pycache__
+ui/db.sqlite3
