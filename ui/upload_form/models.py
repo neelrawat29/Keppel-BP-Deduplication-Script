@@ -4,7 +4,7 @@ from django.urls import reverse
 # Create your models here.
 
 
-class FileToDedupe(models.Model):
+class UploadedFile(models.Model):
     file_xlsx = models.FileField(upload_to='%Y-%m-%d/')
     date_uploaded = models.DateTimeField(
         auto_now_add=True, db_index=True, editable=False)
@@ -17,7 +17,10 @@ class FileToDedupe(models.Model):
     def get_absolute_url(self):
         return reverse('detail', kwargs={'pk': self.pk})
 
+    def __str__(self):
+        return 'Uploaded file ({})'.format(self.file_xlsx.name)
+
     class Meta:
-        verbose_name_plural='files to deduplicate'
+        verbose_name_plural='uploaded files'
 
     # TODO: uploader field

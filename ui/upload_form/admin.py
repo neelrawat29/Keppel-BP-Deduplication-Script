@@ -1,5 +1,5 @@
 from django.contrib import admin
 
-from .models import FileToDedupe
+from .models import UploadedFile
 
-admin.site.register(FileToDedupe)
+admin.site.register(UploadedFile)

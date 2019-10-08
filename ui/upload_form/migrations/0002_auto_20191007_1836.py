@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AlterField(
-            model_name='filetodedupe',
+            model_name='UploadedFile',
             name='date_processed',
             field=models.DateTimeField(db_index=True, editable=False, null=True),
         ),
