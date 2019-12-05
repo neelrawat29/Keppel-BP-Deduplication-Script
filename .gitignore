@@ -3,5 +3,5 @@ Include
 Lib
 Scripts
 *.xlsx
-!/template.xlsx
+!/template*.xlsx
 __pycache__

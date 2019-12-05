@@ -7,13 +7,14 @@ from openpyxl import workbook, load_workbook
 from dedupe_range import DedupeRange
 
 
-def process_range(start_row, end_row, uen, search_term, full_name, city_zip, source=None):
+def process_range(start_row, end_row, bu_sort1, bu_sort2, name_org, address, idn, source=None):
     dedupe_range = DedupeRange(
-        len(uen), start_row, end_row, source=source)
-    dedupe_range.process_UEN(uen)
-    dedupe_range.process(search_term)
-    dedupe_range.process(full_name)
-    dedupe_range.process(city_zip, weight=0.5, weight_exact_match=0.5)
+        len(name_org), start_row, end_row, source=source)
+    dedupe_range.process_UEN(bu_sort1)
+    dedupe_range.process(bu_sort2)
+    dedupe_range.process(name_org)
+    dedupe_range.process(address)
+    dedupe_range.process(idn)
 
     return dedupe_range.score
 
@@ -33,7 +34,7 @@ def dedupe_file(file_path, ignore_same_source=False):
 
     source = iter_col(2) if ignore_same_source else None
 
-    n_proc = mp.cpu_count() - 1
+    n_proc = 2 #mp.cpu_count() - 1
     chunk_size = round(row_count/n_proc + .5)
 
     def get_row_range():
@@ -58,7 +59,7 @@ def dedupe_file(file_path, ignore_same_source=False):
 
     with mp.Pool(processes=n_proc) as pool:
         proc_results = [pool.apply_async(process_range, args=(
-            *r, iter_col(3), iter_col(4), iter_col(5), iter_col(6), source)) for r in row_range]
+            *r, iter_col(4), iter_col(5), iter_col(6), iter_col(8), iter_col(9), source)) for r in row_range]
         result = [r.get() for r in proc_results]
 
     score = np.concatenate(result)
@@ -76,7 +77,7 @@ def dedupe_file(file_path, ignore_same_source=False):
     for i, max_score in enumerate(np.max(score, axis=0)):
         ws.cell(i+2, score_column).value = max_score
 
-    wb.save(filename='output.xlsx')
+    wb.save(filename='output_vn.xlsx')
 
 
 if __name__ == "__main__":
